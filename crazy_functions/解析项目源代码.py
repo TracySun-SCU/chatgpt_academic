@@ -10,8 +10,8 @@ def 解析源代码(file_manifest, project_folder, top_p, temperature, chatbot, 
             file_content = f.read()
 
         prefix = "接下来请你逐文件分析下面的工程" if index==0 else ""
-        i_say = prefix + f'请对下面的程序文件做一个概述文件名是{os.path.relpath(fp, project_folder)}，文件代码是 ```{file_content}```'
-        i_say_show_user = prefix + f'[{index}/{len(file_manifest)}] 请对下面的程序文件做一个概述: {os.path.abspath(fp)}'
+        i_say = f'{prefix}请对下面的程序文件做一个概述文件名是{os.path.relpath(fp, project_folder)}，文件代码是 ```{file_content}```'
+        i_say_show_user = f'{prefix}[{index}/{len(file_manifest)}] 请对下面的程序文件做一个概述: {os.path.abspath(fp)}'
         chatbot.append((i_say_show_user, "[Local Message] waiting gpt response."))
         yield chatbot, history, '正常'
 
@@ -22,11 +22,14 @@ def 解析源代码(file_manifest, project_folder, top_p, temperature, chatbot, 
             gpt_say = yield from predict_no_ui_but_counting_down(i_say, i_say_show_user, chatbot, top_p, temperature, history=[])   # 带超时倒计时
 
             chatbot[-1] = (i_say_show_user, gpt_say)
-            history.append(i_say_show_user); history.append(gpt_say)
+            history.append(i_say_show_user)
+            history.append(gpt_say)
             yield chatbot, history, msg
-            if not fast_debug: time.sleep(2)
+        if not fast_debug: time.sleep(2)
 
-    all_file = ', '.join([os.path.relpath(fp, project_folder) for index, fp in enumerate(file_manifest)])
+    all_file = ', '.join(
+        [os.path.relpath(fp, project_folder) for fp in file_manifest]
+    )
     i_say = f'根据以上你自己的分析，对程序的整体功能和构架做出概括。然后用一张markdown表格整理每个文件的功能（包括{all_file}）。'
     chatbot.append((i_say, "[Local Message] waiting gpt response."))
     yield chatbot, history, '正常'
@@ -35,7 +38,7 @@ def 解析源代码(file_manifest, project_folder, top_p, temperature, chatbot, 
         msg = '正常'
         # ** gpt request **
         gpt_say = yield from predict_no_ui_but_counting_down(i_say, i_say, chatbot, top_p, temperature, history=history)   # 带超时倒计时
-        
+
         chatbot[-1] = (i_say, gpt_say)
         history.append(i_say); history.append(gpt_say)
         yield chatbot, history, msg
@@ -50,15 +53,15 @@ def 解析源代码(file_manifest, project_folder, top_p, temperature, chatbot, 
 def 解析项目本身(txt, top_p, temperature, chatbot, history, systemPromptTxt, WEB_PORT):
     history = []    # 清空历史，以免输入溢出
     import time, glob, os
-    file_manifest = [f for f in glob.glob('*.py')]
+    file_manifest = list(glob.glob('*.py'))
     for index, fp in enumerate(file_manifest):
         # if 'test_project' in fp: continue
         with open(fp, 'r', encoding='utf-8') as f:
             file_content = f.read()
 
         prefix = "接下来请你分析自己的程序构成，别紧张，" if index==0 else ""
-        i_say = prefix + f'请对下面的程序文件做一个概述文件名是{fp}，文件代码是 ```{file_content}```'
-        i_say_show_user = prefix + f'[{index}/{len(file_manifest)}] 请对下面的程序文件做一个概述: {os.path.abspath(fp)}'
+        i_say = f'{prefix}请对下面的程序文件做一个概述文件名是{fp}，文件代码是 ```{file_content}```'
+        i_say_show_user = f'{prefix}[{index}/{len(file_manifest)}] 请对下面的程序文件做一个概述: {os.path.abspath(fp)}'
         chatbot.append((i_say_show_user, "[Local Message] waiting gpt response."))
         yield chatbot, history, '正常'
 
@@ -99,8 +102,8 @@ def 解析一个Python项目(txt, top_p, temperature, chatbot, history, systemPr
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到本地项目或无权访问: {txt}")
         yield chatbot, history, '正常'
         return
-    file_manifest = [f for f in glob.glob(f'{project_folder}/**/*.py', recursive=True)]
-    if len(file_manifest) == 0:
+    file_manifest = list(glob.glob(f'{project_folder}/**/*.py', recursive=True))
+    if not file_manifest:
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到任何python文件: {txt}")
         yield chatbot, history, '正常'
         return
@@ -118,10 +121,8 @@ def 解析一个C项目的头文件(txt, top_p, temperature, chatbot, history, s
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到本地项目或无权访问: {txt}")
         yield chatbot, history, '正常'
         return
-    file_manifest = [f for f in glob.glob(f'{project_folder}/**/*.h', recursive=True)] # + \
-                    # [f for f in glob.glob(f'{project_folder}/**/*.cpp', recursive=True)] + \
-                    # [f for f in glob.glob(f'{project_folder}/**/*.c', recursive=True)]
-    if len(file_manifest) == 0:
+    file_manifest = list(glob.glob(f'{project_folder}/**/*.h', recursive=True))
+    if not file_manifest:
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到任何.h头文件: {txt}")
         yield chatbot, history, '正常'
         return
@@ -138,9 +139,10 @@ def 解析一个C项目(txt, top_p, temperature, chatbot, history, systemPromptT
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到本地项目或无权访问: {txt}")
         yield chatbot, history, '正常'
         return
-    file_manifest = [f for f in glob.glob(f'{project_folder}/**/*.h', recursive=True)]  + \
-                    [f for f in glob.glob(f'{project_folder}/**/*.cpp', recursive=True)] + \
-                    [f for f in glob.glob(f'{project_folder}/**/*.c', recursive=True)]
+    file_manifest = (
+        list(glob.glob(f'{project_folder}/**/*.h', recursive=True))
+        + list(glob.glob(f'{project_folder}/**/*.cpp', recursive=True))
+    ) + list(glob.glob(f'{project_folder}/**/*.c', recursive=True))
     if len(file_manifest) == 0:
         report_execption(chatbot, history, a = f"解析项目: {txt}", b = f"找不到任何.h头文件: {txt}")
         yield chatbot, history, '正常'

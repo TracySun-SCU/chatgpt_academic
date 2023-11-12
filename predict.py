@@ -64,11 +64,10 @@ def predict_no_ui(inputs, top_p, temperature, history=[], sys_prompt=""):
             if MAX_RETRY!=0: print(f'请求超时，正在重试 ({retry}/{MAX_RETRY}) ……')
 
     try:
-        result = json.loads(response.text)["choices"][0]["message"]["content"]
-        return result
+        return json.loads(response.text)["choices"][0]["message"]["content"]
     except Exception as e:
         if "choices" not in response.text: print(response.text)
-        raise ConnectionAbortedError("Json解析不合常规，可能是文本过长" + response.text)
+        raise ConnectionAbortedError(f"Json解析不合常规，可能是文本过长{response.text}")
 
 
 def predict_no_ui_long_connection(inputs, top_p, temperature, history=[], sys_prompt=""):
@@ -97,12 +96,14 @@ def predict_no_ui_long_connection(inputs, top_p, temperature, history=[], sys_pr
         if len(chunk)==0: continue
         if not chunk.startswith('data:'): 
             chunk = get_full_error(chunk.encode('utf8'), stream_response)
-            raise ConnectionAbortedError("OpenAI拒绝了请求:" + chunk.decode())
+            raise ConnectionAbortedError(f"OpenAI拒绝了请求:{chunk.decode()}")
         delta = json.loads(chunk.lstrip('data:'))['choices'][0]["delta"]
         if len(delta) == 0: break
         if "role" in delta: continue
+        if "content" not in delta:
+            raise RuntimeError(f"意外Json结构：{delta}")
+        if "content" in delta: result += delta["content"]
         if "content" in delta: result += delta["content"]; print(delta["content"], end='')
-        else: raise RuntimeError("意外Json结构："+delta)
     return result
 
 
@@ -131,7 +132,8 @@ def predict(inputs, top_p, temperature, chatbot=[], history=[], system_prompt=''
         yield chatbot, history, "等待响应"
 
     headers, payload = generate_payload(inputs, top_p, temperature, history, system_prompt, stream)
-    history.append(inputs); history.append(" ")
+    history.append(inputs)
+    history.append(" ")
 
     retry = 0
     while True:
@@ -143,11 +145,11 @@ def predict(inputs, top_p, temperature, chatbot=[], history=[], system_prompt=''
             retry += 1
             chatbot[-1] = ((chatbot[-1][0], timeout_bot_msg))
             retry_msg = f"，正在重试 ({retry}/{MAX_RETRY}) ……" if MAX_RETRY > 0 else ""
-            yield chatbot, history, "请求超时"+retry_msg
+            yield (chatbot, history, f"请求超时{retry_msg}")
             if retry > MAX_RETRY: raise TimeoutError
 
     gpt_replying_buffer = ""
-    
+
     is_head_of_the_stream = True
     if stream:
         stream_response =  response.iter_lines()
@@ -157,7 +159,7 @@ def predict(inputs, top_p, temperature, chatbot=[], history=[], system_prompt=''
             if is_head_of_the_stream:
                 # 数据流的第一帧不携带content
                 is_head_of_the_stream = False; continue
-            
+
             if chunk:
                 try:
                     if len(json.loads(chunk.decode()[6:])['choices'][0]["delta"]) == 0:
@@ -187,7 +189,7 @@ def predict(inputs, top_p, temperature, chatbot=[], history=[], system_prompt=''
                         from toolbox import regular_txt_to_markdown
                         tb_str = regular_txt_to_markdown(traceback.format_exc())
                         chatbot[-1] = (chatbot[-1][0], f"[Local Message] Json Error \n\n {tb_str} \n\n {regular_txt_to_markdown(chunk.decode()[4:])}")
-                    yield chatbot, history, "Json解析不合常规" + error_msg
+                    yield (chatbot, history, f"Json解析不合常规{error_msg}")
                     return
 
 def generate_payload(inputs, top_p, temperature, history, system_prompt, stream):
@@ -204,23 +206,16 @@ def generate_payload(inputs, top_p, temperature, history, system_prompt, stream)
     messages = [{"role": "system", "content": system_prompt}]
     if conversation_cnt:
         for index in range(0, 2*conversation_cnt, 2):
-            what_i_have_asked = {}
-            what_i_have_asked["role"] = "user"
-            what_i_have_asked["content"] = history[index]
-            what_gpt_answer = {}
-            what_gpt_answer["role"] = "assistant"
-            what_gpt_answer["content"] = history[index+1]
+            what_i_have_asked = {"role": "user", "content": history[index]}
+            what_gpt_answer = {"role": "assistant", "content": history[index+1]}
             if what_i_have_asked["content"] != "":
                 if what_gpt_answer["content"] == "": continue
                 if what_gpt_answer["content"] == timeout_bot_msg: continue
-                messages.append(what_i_have_asked)
-                messages.append(what_gpt_answer)
+                messages.extend((what_i_have_asked, what_gpt_answer))
             else:
                 messages[-1]['content'] = what_gpt_answer['content']
 
-    what_i_ask_now = {}
-    what_i_ask_now["role"] = "user"
-    what_i_ask_now["content"] = inputs
+    what_i_ask_now = {"role": "user", "content": inputs}
     messages.append(what_i_ask_now)
 
     payload = {
@@ -233,7 +228,7 @@ def generate_payload(inputs, top_p, temperature, history, system_prompt, stream)
         "presence_penalty": 0,
         "frequency_penalty": 0,
     }
-    
+
     print(f" {LLM_MODEL} : {conversation_cnt} : {inputs}")
     return headers,payload
 

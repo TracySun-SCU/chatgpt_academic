@@ -49,12 +49,10 @@ def get_crazy_functionals():
     # VisibleLevel=1 经过测试，但功能未达到理想状态
     if UserVisibleLevel >= 1:
         from crazy_functions.批量总结PDF文档 import 批量总结PDF文档
-        function_plugins.update({
-            "[仅供开发调试] 批量总结PDF文档": {
-                "Color": "stop",
-                "Function": 批量总结PDF文档
-            },
-        })
+        function_plugins["[仅供开发调试] 批量总结PDF文档"] = {
+            "Color": "stop",
+            "Function": 批量总结PDF文档,
+        }
 
     # VisibleLevel=2 尚未充分测试的函数插件，放在这里
     if UserVisibleLevel >= 2:

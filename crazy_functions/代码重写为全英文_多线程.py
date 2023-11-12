@@ -40,7 +40,7 @@ def 全项目切换英文(txt, top_p, temperature, chatbot, history, sys_prompt,
     for h in handles:
         h.daemon = True
         h.start()
-    chatbot.append(('开始了吗？', f'多线程操作已经开始'))
+    chatbot.append(('开始了吗？', '多线程操作已经开始'))
     yield chatbot, history, '正常'
 
     # 循环轮询各个线程是否执行完毕

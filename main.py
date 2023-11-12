@@ -1,4 +1,5 @@
-import os; os.environ['no_proxy'] = '*' # 避免代理网络产生意外污染
+import os
+os.environ['no_proxy'] = '*' # 避免代理网络产生意外污染
 import gradio as gr
 from predict import predict
 from toolbox import format_io, find_free_port, on_file_uploaded, on_report_generated, get_conf
@@ -73,7 +74,12 @@ with gr.Blocks(theme=set_theme, analytics_enabled=False) as demo:
                     with gr.Accordion("展开“文件上传区”。上传本地文件供“红颜色”的函数插件调用。", open=False):
                         file_upload = gr.Files(label='任何文件, 但推荐上传压缩文件(zip, tar)', file_count="multiple")
             with gr.Accordion("展开SysPrompt & GPT参数 & 交互界面布局", open=False):
-                system_prompt = gr.Textbox(show_label=True, placeholder=f"System Prompt", label="System prompt", value=initial_prompt)
+                system_prompt = gr.Textbox(
+                    show_label=True,
+                    placeholder="System Prompt",
+                    label="System prompt",
+                    value=initial_prompt,
+                )
                 top_p = gr.Slider(minimum=-0, maximum=1.0, value=1.0, step=0.01,interactive=True, label="Top-p (nucleus sampling)",)
                 temperature = gr.Slider(minimum=-0, maximum=2.0, value=1.0, step=0.01, interactive=True, label="Temperature",)
                 checkboxes = gr.CheckboxGroup(["基础功能区", "函数插件区", "文件上传区"], value=["USA", "Japan", "Pakistan"], 
@@ -81,9 +87,9 @@ with gr.Blocks(theme=set_theme, analytics_enabled=False) as demo:
     predict_args = dict(fn=predict, inputs=[txt, top_p, temperature, chatbot, history, system_prompt], outputs=[chatbot, history, statusDisplay], show_progress=True)
     empty_txt_args = dict(fn=lambda: "", inputs=[], outputs=[txt]) # 用于在提交后清空输入栏
 
-    cancel_handles.append(txt.submit(**predict_args))
-    # txt.submit(**empty_txt_args) 在提交后清空输入栏
-    cancel_handles.append(submitBtn.click(**predict_args))
+    cancel_handles.extend(
+        (txt.submit(**predict_args), submitBtn.click(**predict_args))
+    )
     # submitBtn.click(**empty_txt_args) 在提交后清空输入栏
     resetBtn.click(lambda: ([], [], "已重置"), None, [chatbot, history, statusDisplay])
     for k in functional:

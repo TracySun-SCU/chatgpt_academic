@@ -62,7 +62,7 @@ def write_results_to_file(history, file_name=None):
             if i%2==0: f.write('## ')
             f.write(content)
             f.write('\n\n')
-    res = '以上材料已经被写入' + os.path.abspath(f'./gpt_log/{file_name}')
+    res = f"以上材料已经被写入{os.path.abspath(f'./gpt_log/{file_name}')}"
     print(res)
     return res
 
@@ -103,16 +103,14 @@ def text_divide_paragraph(text):
     """
         将文本按照段落分隔符分割开，生成带有段落标签的HTML代码。
     """
-    if '```' in text:
-        # careful input
-        return text
-    else:
+    if '```' not in text:
         # wtf input
         lines = text.split("\n")
         for i, line in enumerate(lines):
             lines[i] = lines[i].replace(" ", "&nbsp;")
         text = "</br>".join(lines)
-        return text
+    # careful input
+    return text
 
 def markdown_convertion(txt):
     """
@@ -162,12 +160,12 @@ def extract_archive(file_path, dest_dir):
     if file_extension == '.zip':
         with zipfile.ZipFile(file_path, 'r') as zipobj:
             zipobj.extractall(path=dest_dir)
-            print("Successfully extracted zip archive to {}".format(dest_dir))
+            print(f"Successfully extracted zip archive to {dest_dir}")
 
     elif file_extension in ['.tar', '.gz', '.bz2']:
         with tarfile.open(file_path, 'r:*') as tarobj:
             tarobj.extractall(path=dest_dir)
-            print("Successfully extracted tar archive to {}".format(dest_dir))
+            print(f"Successfully extracted tar archive to {dest_dir}")
     else:
         return
 
@@ -206,7 +204,7 @@ def on_file_uploaded(files, chatbot, txt):
         shutil.copy(file.name, f'private_upload/{time_tag}/{file_origin_name}')
         extract_archive(f'private_upload/{time_tag}/{file_origin_name}', 
                         dest_dir=f'private_upload/{time_tag}/{file_origin_name}.extract')
-    moved_files = [fp for fp in glob.glob('private_upload/**/*', recursive=True)]
+    moved_files = list(glob.glob('private_upload/**/*', recursive=True))
     txt = f'private_upload/{time_tag}'
     moved_files_str = '\t\n\n'.join(moved_files)
     chatbot.append(['我上传了文件，请查收', 
